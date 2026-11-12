@@ -1,0 +1,6 @@
+{
+  "name": "progress-panel",
+  "version": "0.1.0",
+  "description": "작업 진행 경과(단계·경과 시간·모델별 토큰)를 앱 옆 패널과 떠 있는 위젯으로 보여 준다",
+  "types": "./types/index.d.ts"
+}

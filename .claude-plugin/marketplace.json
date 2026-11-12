@@ -1,0 +1,12 @@
+{
+  "name": "progress-panel",
+  "owner": {
+    "name": "paraco"
+  },
+  "plugins": [
+    {
+      "name": "progress-panel",
+      "source": "./"
+    }
+  ]
+}

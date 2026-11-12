@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>진행 경과</title>
+<style>
+  :root {
+    --bg: transparent;
+    --card: rgba(255, 255, 255, 0.045);
+    --line: rgba(255, 255, 255, 0.08);
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --dim: #64748b;
+    --done: #22c55e;
+    --done2: #14b8a6;
+    --run: #3b82f6;
+    --run2: #a855f7;
+    --block: #f59e0b;
+    --block2: #ef4444;
+    --gold: #fbbf24;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font: 13px/1.4 Pretendard, -apple-system, "Apple SD Gothic Neo", sans-serif;
+    -webkit-font-smoothing: antialiased; -webkit-user-select: none; cursor: default; }
+  body { padding: 34px 14px 16px; }
+  .hero { position: relative; overflow: hidden; border-radius: 18px; padding: 16px 16px 14px;
+    background: linear-gradient(135deg, #312e81 0%, #1e1b4b 55%, #064e3b 100%); }
+  .hero::after { content: ""; position: absolute; inset: -40% -20% auto auto; width: 70%; height: 140%;
+    background: radial-gradient(circle, rgba(34, 211, 238, .35), transparent 60%); pointer-events: none; }
+  .hero h1 { margin: 0 0 10px; font-size: 15px; font-weight: 800; letter-spacing: .2px; }
+  .hero h1 small { font-weight: 500; color: #c7d2fe; font-size: 11px; margin-left: 6px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; position: relative; z-index: 1; }
+  .stat { background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .1);
+    border-radius: 12px; padding: 8px 10px; }
+  .stat b { display: block; font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 10.5px; color: #c7d2fe; }
+  .stat.bg b { color: #c4b5fd; }
+  /* 조치 필요: yellow, blinking while 1 or more */
+  .stat.warn { background: rgba(250, 204, 21, .16); border-color: rgba(250, 204, 21, .7);
+    animation: warn-blink 1.1s ease-in-out infinite; }
+  .stat.warn b { color: #facc15; }
+  .stat.warn span { color: #fde68a; }
+  @keyframes warn-blink {
+    0%, 100% { background: rgba(250, 204, 21, .28); box-shadow: 0 0 0 1px rgba(250, 204, 21, .6), 0 0 18px rgba(250, 204, 21, .55); }
+    50% { background: rgba(250, 204, 21, .06); box-shadow: 0 0 0 1px rgba(250, 204, 21, .25), 0 0 0 rgba(250, 204, 21, 0); }
+  }
+  .stat.calm b { color: #cbd5e1; }
+  .stat.live b { color: #5eead4; }
+  .cards { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+  .card { position: relative; border-radius: 16px; padding: 12px 12px 10px 12px; background: var(--card);
+    border: 1px solid var(--line); transition: opacity .3s; }
+  .card.live { border-color: rgba(94, 234, 212, .45);
+    box-shadow: 0 0 0 1px rgba(94, 234, 212, .15), 0 6px 24px -10px rgba(45, 212, 191, .55); }
+  .card.idle { opacity: .55; }
+  .top { display: flex; align-items: center; gap: 12px; }
+  .ring { flex: none; width: 52px; height: 52px; }
+  .ring text { font-weight: 800; fill: #fff; }
+  .meta { min-width: 0; flex: 1; }
+  .proj { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 13.5px; }
+  .proj .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
+  .live .dot { background: #2dd4bf; animation: pulse 1.6s infinite; }
+  @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(45, 212, 191, .7); } 50% { box-shadow: 0 0 0 6px rgba(45, 212, 191, 0); } }
+  .sub { color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .now { margin-top: 3px; font-size: 12px; color: #c4b5fd; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .now::before { content: "▶ "; color: var(--run2); }
+  .freed { flex: none; text-align: right; }
+  .freed b { display: block; font-size: 17px; font-weight: 800; color: var(--gold); font-variant-numeric: tabular-nums; }
+  .freed span { font-size: 10px; color: var(--muted); }
+  .usage { display: flex; align-items: center; gap: 8px; margin-top: 9px; font-size: 10.5px; color: var(--muted); }
+  .chip { flex: none; padding: 2px 8px; border-radius: 999px; font-weight: 700; font-size: 10px; color: #fff;
+    background: linear-gradient(135deg, #7c3aed, #db2777); }
+  .chip.sonnet { background: linear-gradient(135deg, #2563eb, #06b6d4); }
+  .chip.haiku { background: linear-gradient(135deg, #059669, #84cc16); }
+  .chip.fable { background: linear-gradient(135deg, #ea580c, #f59e0b); }
+  .ctx { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+  .ctx .track { flex: 1; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .08); overflow: hidden; }
+  .ctx .track i { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, #38bdf8, #818cf8); }
+  .ctx.hot .track i { background: linear-gradient(90deg, #f59e0b, #ef4444); }
+  .ctx span { flex: none; font-variant-numeric: tabular-nums; }
+  .stats2 { display: flex; align-items: center; gap: 10px; margin-top: 6px; font-size: 10.5px; color: var(--muted); }
+  .stats2 .clock { color: #fde68a; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stats2 .clock.done { color: #94a3b8; }
+  .stats2 .tok b { color: #e2e8f0; font-variant-numeric: tabular-nums; }
+  .stats2 .mods { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+  .cost { flex: none; color: #fde68a; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .limits { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 5px; margin-top: 10px; }
+  .limit { display: flex; align-items: center; gap: 8px; font-size: 10.5px; color: #c7d2fe; }
+  .limit .lk { flex: none; width: 54px; }
+  .limit .track { flex: 1; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .1); overflow: hidden; }
+  .limit .track i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #34d399, #22d3ee); }
+  .limit.hot .track i { background: linear-gradient(90deg, #f59e0b, #ef4444); }
+  .limit .lv { flex: none; width: 92px; text-align: right; font-variant-numeric: tabular-nums; }
+  .bgline { margin-top: 6px; font-size: 10.5px; color: #c4b5fd; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .group { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+  .group:not(.primary) { opacity: .8; }
+  .gh { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .gn { font-size: 11px; font-weight: 700; color: #c7d2fe; letter-spacing: .3px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .primary .gn { color: #5eead4; }
+  .gc { flex: none; font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .bar { height: 5px; border-radius: 3px; background: rgba(255, 255, 255, .07); margin: 5px 0 7px; overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--done), var(--done2));
+    transition: width .6s ease; }
+  ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+  li { display: flex; align-items: baseline; gap: 7px; font-size: 11.5px; color: var(--muted); min-width: 0; }
+  li .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  li .g { flex: none; width: 14px; height: 14px; border-radius: 50%; display: inline-flex; align-items: center;
+    justify-content: center; font-size: 8.5px; font-weight: 900; color: #0b1020; transform: translateY(2px); }
+  li.done .g { background: linear-gradient(135deg, var(--done), var(--done2)); }
+  li.done .t { color: #cbd5e1; }
+  li.running .g { background: linear-gradient(135deg, var(--run), var(--run2)); }
+  li.running .t { color: #fff; font-weight: 700; }
+  li.blocked { background: rgba(245, 158, 11, .09); border: 1px solid rgba(245, 158, 11, .3); border-radius: 8px; padding: 3px 6px; margin: 1px -6px; }
+  li.blocked .g { background: linear-gradient(135deg, var(--block), var(--block2)); }
+  li.blocked .t { color: #fde68a; }
+  li.pending .g { background: #334155; color: #94a3b8; }
+  li.skipped .g { background: #1e293b; color: #64748b; }
+  li.skipped .t { text-decoration: line-through; color: var(--dim); }
+  li .v { flex: none; color: var(--gold); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .more { font-size: 10.5px; color: var(--dim); margin-top: 4px; }
+  .empty { margin-top: 30px; text-align: center; color: var(--muted); }
+  .empty b { display: block; font-size: 30px; margin-bottom: 6px; }
+  .foot { margin-top: 10px; text-align: center; font-size: 10px; color: var(--dim); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+  const LIVE_MS = 2 * 60 * 1000
+  const IDLE_MS = 30 * 60 * 1000
+  // Sessions stay on the board, a closed one dimmed (quitting the app closes
+  // them all, and reopening brings them back); only a day of silence drops one.
+  const KEEP_MS = 24 * 60 * 60 * 1000
+  const GLYPH = { done: '✓', running: '▶', blocked: '!', pending: '', skipped: '–' }
+  let sessions = []
+
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
+  const gb = n => (n >= 10 ? n.toFixed(0) : n.toFixed(1))
+  const ago = ms => {
+    const s = Math.max(0, Math.round(ms / 1000))
+    if (s < 60) return `${s}초 전`
+    if (s < 3600) return `${Math.round(s / 60)}분 전`
+    return `${Math.round(s / 3600)}시간 전`
+  }
+
+  const isClosed = i => i.status === 'done' || i.status === 'skipped'
+  const PLAN_STATUS = { completed: 'done', in_progress: 'running', pending: 'pending' }
+
+  // A session's lists: the app's task list (what it is doing this turn) first,
+  // then the progress board the session sent (a longer job), each kept apart.
+  const groupsOf = s => {
+    const groups = []
+    const plan = (s.plan ?? []).map(x => ({ text: x.content, status: PLAN_STATUS[x.status] ?? 'pending' }))
+    if (plan.length > 0) groups.push({ name: '지금 작업', items: plan })
+    const steps = (s.board?.steps ?? []).map(x => ({ text: x.label, status: x.status, freed: x.freedGB }))
+    if (steps.length > 0) groups.push({ name: s.board?.title || '진행 경과', items: steps })
+
+    return groups
+  }
+  const itemsOf = s => groupsOf(s).flatMap(g => g.items)
+
+  // The list the ring follows: the first with work left, else the first.
+  const primaryOf = groups => groups.find(g => !g.items.every(isClosed)) ?? groups[0]
+
+  const isShown = (s, now) => now - Date.parse(s.updatedAt) < KEEP_MS
+
+  // Working: an open session mid-turn (a busy mark refreshed within 15 minutes,
+  // past which a crashed session's mark is not trusted), running background
+  // work, or updated in the last two minutes.
+  const BUSY_TRUST_MS = 15 * 60 * 1000
+  const isWorking = (s, now) => {
+    if (s.ended) return false
+    const age = now - Date.parse(s.updatedAt)
+
+    return (s.busy === true && age < BUSY_TRUST_MS) || (s.background ?? []).length > 0 || age < LIVE_MS
+  }
+
+  const ring = pct => {
+    const r = 21, c = 2 * Math.PI * r
+    return `<svg class="ring" viewBox="0 0 52 52">
+      <defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#34d399"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs>
+      <circle cx="26" cy="26" r="${r}" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="6"/>
+      ${pct > 0 ? `<circle cx="26" cy="26" r="${r}" fill="none" stroke="url(#rg)" stroke-width="6" stroke-linecap="round"
+        stroke-dasharray="${(c * pct).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 26 26)"/>` : ''}
+      <text x="26" y="27" text-anchor="middle" font-size="12">${Math.round(pct * 100)}%</text>
+      <text x="26" y="37" text-anchor="middle" font-size="7" font-weight="500" fill="#94a3b8">완료</text></svg>`
+  }
+
+  // "claude-opus-5-5" → "Opus 5.5"; an alias such as "sonnet" → "Sonnet".
+  const modelName = id => {
+    const m = String(id ?? '').match(/(opus|sonnet|haiku|fable)[-_ ]?(\d+)?(?:[-_.](\d+))?/i)
+    if (!m) return String(id ?? '')
+    const family = m[1][0].toUpperCase() + m[1].slice(1).toLowerCase()
+
+    return m[2] ? `${family} ${m[2]}${m[3] ? `.${m[3]}` : ''}` : family
+  }
+  const kTokens = n => (n >= 1000000 ? `${(n / 1000000).toFixed(1)}M` : n >= 1000 ? `${Math.round(n / 1000)}k` : `${n}`)
+
+  const durationText = ms => {
+    const min = Math.floor(ms / 60000)
+    if (min < 1) return '1분 미만'
+    if (min < 60) return `${min}분`
+    return `${Math.floor(min / 60)}시간 ${String(min % 60).padStart(2, '0')}분`
+  }
+
+  // Elapsed: the progress board's clock when it has one (frozen at the last
+  // close once every step is done), else the task list's.
+  const elapsedOf = (s, now) => {
+    const b = s.board ?? {}
+    const steps = b.steps ?? []
+    if (b.startedAt && steps.length > 0) {
+      const done = steps.every(x => x.status === 'done' || x.status === 'skipped')
+      const ends = steps.map(x => Date.parse(x.endedAt ?? '')).filter(n => !Number.isNaN(n))
+      const end = done && ends.length ? Math.max(...ends) : now
+      return { ms: Math.max(0, end - Date.parse(b.startedAt)), done }
+    }
+    if (s.planStartedAt) {
+      const end = s.planEndedAt ? Date.parse(s.planEndedAt) : now
+      return { ms: Math.max(0, end - Date.parse(s.planStartedAt)), done: !!s.planEndedAt }
+    }
+    return null
+  }
+
+  // Tokens of the whole session by model (main loop and subagents).
+  const tokensOf = s => {
+    const by = s.tokens ?? {}
+    let all = 0, out = 0
+    for (const t of Object.values(by)) { all += t.input + t.cacheRead + t.cacheWrite + t.output; out += t.output }
+    const models = Object.entries(by).sort((a, c) => (c[1].output) - (a[1].output)).map(([m]) => modelName(m))
+    return { all, out, models }
+  }
+
+  const statsRow = (s, now) => {
+    const el = s.ended ? null : elapsedOf(s, now)
+    const tk = tokensOf(s)
+    if (!el && tk.all === 0) return ''
+    const clock = el ? `<span class="clock${el.done ? ' done' : ''}" title="${el.done ? '걸린 시간' : '경과 시간'}">⏱ ${durationText(el.ms)}</span>` : ''
+    const tok = tk.all > 0 ? `<span class="tok" title="이 세션 전체 토큰 (출력 포함)">토큰 <b>${kTokens(tk.all)}</b> · 출력 ${kTokens(tk.out)}</span>` : ''
+    const mods = tk.models.length > 1 ? `<span class="mods" title="쓰인 모델">${esc(tk.models.join(' · '))}</span>` : ''
+    return `<div class="stats2">${clock}${tok}${mods}</div>`
+  }
+
+  const usageRow = u => {
+    if (!u) return ''
+    const name = modelName(u.model)
+    const family = (name.split(' ')[0] || '').toLowerCase()
+    const pct = u.contextPercent ?? (u.contextTokens && u.contextWindow ? (u.contextTokens / u.contextWindow) * 100 : null)
+    const ctx = pct === null ? '' : `<div class="ctx${pct >= 80 ? ' hot' : ''}" title="컨텍스트 창 사용량">
+        <div class="track"><i style="width:${Math.min(100, pct).toFixed(1)}%"></i></div>
+        <span>${Math.round(pct)}%${u.contextTokens ? ` · ${kTokens(u.contextTokens)}/${kTokens(u.contextWindow)}` : ''}</span></div>`
+    const cost = u.costUSD == null ? '' : `<span class="cost" title="이 세션 누적 비용">$${u.costUSD.toFixed(2)}</span>`
+
+    return `<div class="usage"><span class="chip ${family}">${esc(name)}</span>${ctx || '<div class="ctx"></div>'}${cost}</div>`
+  }
+
+  const LIMIT_NAME = { five_hour: '5시간 한도', seven_day: '7일 한도', spend_limit: '지출 한도' }
+  const resetText = iso => {
+    if (!iso) return ''
+    const t = new Date(iso)
+    if (Number.isNaN(t.getTime())) return ''
+    const sameDay = t.toDateString() === new Date().toDateString()
+
+    return sameDay
+      ? ` · ${t.getHours()}:${String(t.getMinutes()).padStart(2, '0')}`
+      : ` · ${t.getMonth() + 1}/${t.getDate()}`
+  }
+
+  // Rate limits are the account's, not a session's: show the freshest report.
+  const limitsOf = list => {
+    const s = list.find(x => (x.usage?.rateLimits ?? []).length > 0)
+    if (!s) return ''
+
+    return `<div class="limits">${s.usage.rateLimits.map(r => `<div class="limit${r.percentUsed >= 80 ? ' hot' : ''}">
+      <span class="lk">${esc(LIMIT_NAME[r.kind] ?? r.kind)}</span>
+      <div class="track"><i style="width:${Math.min(100, r.percentUsed)}%"></i></div>
+      <span class="lv" title="재설정 시각">${r.percentUsed}%${resetText(r.resetsAt)}</span></div>`).join('')}</div>`
+  }
+
+  const progressOf = items => {
+    const done = items.filter(i => i.status === 'done').length
+
+    return { done, total: items.length, pct: items.length ? done / items.length : 0 }
+  }
+
+  // One list inside a card: its name, count and bar, then up to five items,
+  // what needs a person first.
+  const group = (g, isPrimary) => {
+    const { done, total, pct } = progressOf(g.items)
+    const order = { blocked: 0, running: 1, pending: 2, done: 3, skipped: 4 }
+    const shown = [...g.items].sort((a, b) => (order[a.status] ?? 5) - (order[b.status] ?? 5)).slice(0, 5)
+    const left = g.items.filter(i => !isClosed(i)).length
+
+    return `<div class="group${isPrimary ? ' primary' : ''}">
+      <div class="gh"><span class="gn">${esc(g.name)}</span><span class="gc">${done}/${total}</span></div>
+      <div class="bar"><i style="width:${(pct * 100).toFixed(1)}%"></i></div>
+      <ul>${shown.map(i => `<li class="${i.status}"><span class="g">${GLYPH[i.status] ?? ''}</span>
+        <span class="t" title="${esc(i.text)}">${esc(i.text)}</span>
+        ${i.freed ? `<span class="v">${gb(i.freed)}</span>` : ''}</li>`).join('')}</ul>
+      ${g.items.length > shown.length ? `<div class="more">외 ${g.items.length - shown.length}개${left === 0 ? '' : ` · 남은 일 ${left}개`}</div>` : ''}
+    </div>`
+  }
+
+  const card = (s, now) => {
+    const age = now - Date.parse(s.updatedAt)
+    const groups = groupsOf(s)
+    const primary = primaryOf(groups)
+    const { done, total, pct } = progressOf(primary?.items ?? [])
+    const running = itemsOf(s).find(i => i.status === 'running')
+    const freed = (s.board?.steps ?? []).reduce((a, x) => a + (x.freedGB ?? 0), 0)
+    const working = isWorking(s, now)
+    const cls = s.ended ? 'idle ended' : working ? 'live' : age > IDLE_MS ? 'idle' : ''
+    const state = s.ended ? '종료됨 · 다시 열면 이어짐' : working ? `작업 중 · ${ago(age)} 갱신` : `대기 · ${ago(age)}`
+    const sub = primary ? `${esc(primary.name)} · ${total}단계 중 ${done}개 완료 · ${state}` : `작업 목록 없음 · ${state}`
+
+    return `<div class="card ${cls}">
+      <div class="top">${ring(pct)}
+        <div class="meta">
+          <div class="proj"><i class="dot"></i><span class="name">${esc(s.project)}</span></div>
+          <div class="sub">${sub}</div>
+          ${running ? `<div class="now">${esc(running.text)}</div>` : ''}
+        </div>
+        ${freed > 0 ? `<div class="freed"><b>${gb(freed)}</b><span>GB 확보</span></div>` : ''}
+      </div>
+      ${usageRow(s.usage)}
+      ${statsRow(s, now)}
+      ${!s.ended && (s.background ?? []).length > 0 ? `<div class="bgline" title="${esc(s.background.map(t => `${t.type}: ${t.description}`).join('\n'))}">◐ 백그라운드 ${s.background.length}개 · ${esc(s.background[0].description)}</div>` : ''}
+      ${groups.map(g => group(g, g === primary)).join('')}
+    </div>`
+  }
+
+  const draw = () => {
+    const now = Date.now()
+    // Unfinished work on top, newest first; then fully done (or empty) ones;
+    // closed sessions last. Newest first within each band.
+    const band = s => {
+      if (s.ended) return 2
+      const items = itemsOf(s)
+
+      return items.length > 0 && !items.every(isClosed) ? 0 : 1
+    }
+    const list = sessions.filter(s => isShown(s, now))
+      .sort((a, b) => band(a) - band(b) || Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+    const bgOf = s => (s.ended ? 0 : (s.background ?? []).length)
+    const working = list.filter(s => isWorking(s, now)).length
+    const bg = list.reduce((a, s) => a + bgOf(s), 0)
+    // Steps waiting on a person, across every session: the one number worth
+    // acting on. Job-specific figures (freed GB) stay on their own card.
+    const blocked = list.reduce((a, s) => a + itemsOf(s).filter(i => i.status === 'blocked').length, 0)
+    const hero = `<div class="hero"><h1>컴퓨터 전체 작업<small>${list.length}개 세션</small></h1>
+      <div class="stats">
+        <div class="stat live"><b>${working}</b><span>작업 중 세션</span></div>
+        <div class="stat bg"><b>${bg}</b><span>백그라운드 작업</span></div>
+        <div class="stat ${blocked > 0 ? 'warn' : 'calm'}"><b>${blocked}</b><span>조치 필요</span></div>
+      </div>${limitsOf(list)}</div>`
+    const body = list.length
+      ? `<div class="cards">${list.map(s => card(s, now)).join('')}</div>`
+      : `<div class="empty"><b>◌</b>지금 진행 중인 작업이 없습니다.</div>`
+    document.getElementById('app').innerHTML =
+      hero + body + `<div class="foot">% = 남은 일이 있는 첫 목록의 완료 비율 · 종료한 세션은 흐리게, 24시간 조용하면 정리</div>`
+  }
+
+  window.render = data => { sessions = Array.isArray(data) ? data : []; draw() }
+  setInterval(draw, 10000)
+  draw()
+</script>
+</body>
+</html>
