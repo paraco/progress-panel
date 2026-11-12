@@ -41,8 +41,13 @@ let background: BackgroundTask[] = []
 let busy = false
 let lastBeat = 0
 const BEAT_MS = 60 * 1000
-// How often the pane redraws to move the elapsed-time counter.
-const TICK_MS = 30 * 1000
+// How often the pane redraws: the elapsed time is shown in minutes, and the
+// token use gathered since the last redraw is applied then too.
+const TICK_MS = 60 * 1000
+// Responses not yet charged to the board. Charging each one as it lands
+// redrew the pane on every response (a visible flash); they are applied
+// together on the tick, before a step changes, and at the turn's end.
+let pendingUsage: ResponseUsage[] = []
 
 const field = (v: unknown, key: string): string | undefined =>
   typeof v === 'object' && v !== null ? asText((v as Record<string, unknown>)[key]) : undefined
@@ -299,6 +304,18 @@ const share = async ($: EngineInterface, ended = false): Promise<void> => {
   }
 }
 
+// Charges the gathered responses to the board in one write (one redraw).
+const flushUsage = async ($: EngineInterface): Promise<void> => {
+  if (pendingUsage.length === 0) return
+  const batch = pendingUsage
+  pendingUsage = []
+  try {
+    await update($, board, b => (b.steps.length > 0 ? batch.reduce(addUsage, b) : b))
+  } catch {
+    // A failed write drops this batch rather than failing the hook.
+  }
+}
+
 // A list that opens with nothing open before restarts the clock; a list
 // whose items are all done stops it, and reopening clears the stop.
 const markPlanTimes = (wasOpen: boolean): void => {
@@ -425,7 +442,12 @@ export const register: Register = on => {
     await share($)
     // The SVG draws in a script-less frame and redraws only on state changes,
     // so the elapsed time is kept counting by asking for a redraw (no writes).
-    $.clock.every(TICK_MS, () => $.ui.invalidate('ui.render'))
+    $.clock.every(TICK_MS, () => {
+      // Applying pending usage writes the board, which redraws the pane;
+      // with nothing pending the redraw only moves the clock.
+      if (pendingUsage.length > 0) void flushUsage($)
+      else $.ui.invalidate('ui.render')
+    })
 
     return ran
   })
@@ -440,7 +462,7 @@ export const register: Register = on => {
       const u = ran.usage
       if (u !== null) {
         sessionTokens = addTo(sessionTokens, u)
-        await update($, board, b => (b.steps.length > 0 ? addUsage(b, u) : b))
+        pendingUsage.push(u)
       }
     } catch {
       // Bookkeeping never fails the step that already ran.
@@ -474,6 +496,7 @@ export const register: Register = on => {
   on('classic.Stop', async ($, e, next) => {
     const ran = await next(e)
     busy = false
+    await flushUsage($)
     background = (e.background_tasks ?? [])
       .filter(t => t.status === 'running' || t.status === 'pending')
       .map(t => ({ id: t.id, type: t.type, description: t.description.slice(0, 120) }))
@@ -588,6 +611,8 @@ export const register: Register = on => {
 
   on('tool.call', { tool: 'mcp__progress-panel__progress_update' }, async ($, e) => {
     const input = e as unknown as Record<string, unknown>
+    // Charge what came before this change to the step that was running then.
+    await flushUsage($)
     await update($, board, prev => applyInput(prev, input))
     const { isPlaced } = await $.ui.open({ id: PANE, title: TITLE })
     const now = await read($, board)
@@ -648,7 +673,6 @@ export const register: Register = on => {
             alt={`${b.title || TITLE}: ${summary(b)}`}
             width={width}
             height={Math.round((height * width) / W)}
-            isInteractive
           />
         </Box>
       )
